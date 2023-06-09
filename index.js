@@ -10,6 +10,25 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Verify JWT
+const verifyJWT = (req, res, next)=>{
+  const auhthorization = req.headers.auhthorization;
+  console.log(auhthorization);
+
+  if(!auhthorization){
+    return res.status(401).send({error:true, message: "Unathorized Access"})
+  }
+  // bearer token
+  const token = auhthorization.split(" ")[1];
+
+  jwt.verify(token, proccess.env.ACCESS_TOKEN, (err, decoded)=>{
+    if(err){
+      return res.status(403).send({error:true, message: "Forbidden Access"})
+    }
+    req.decoded = decoded;
+    next();
+  })
+}
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.gexry4e.mongodb.net/?retryWrites=true&w=majority`;
@@ -39,12 +58,23 @@ async function run() {
       res.send({token})
     })
 
+    // VerifyAdmin
+    const verifyAdmin = async(req, res, next)=>{
+      const email = req.decoded.email;
+      const query = {email: email}
+      const user = await usersCollection.findOne(query);
+      if(user?.role !== 'admin'){
+        return res.status(403).send({error : true, message : 'Forbidden Access'})
+      }
+      next();
+    }
 
     // get all users
     app.get('/users', async(req, res)=>{
         const result = await usersCollection.find().toArray();
         res.send(result);
     })
+
     //post users info
     app.post('/users', async(req, res)=>{
         const user = req.body;
