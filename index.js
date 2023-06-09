@@ -69,11 +69,19 @@ async function run() {
       next();
     }
 
-    // get all users
-    app.get('/users', async(req, res)=>{
-        const result = await usersCollection.find().toArray();
-        res.send(result);
-    })
+       // get all users
+       app.get('/users', verifyJWT, verifyAdmin, async(req, res)=>{
+        const email = req.query.email;
+        if(!email){
+          res.send([]);
+        }
+        const decodedEmail = req.decoded.email;
+        if(!email !== decodedEmail){
+          return res.status(403).send({erros:true,  message: "Forbidden Access"})
+        }
+          const result = await usersCollection.find().toArray();
+          res.send(result);
+      })
 
     //post users info
     app.post('/users', async(req, res)=>{
