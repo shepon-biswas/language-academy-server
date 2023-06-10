@@ -11,16 +11,13 @@ app.use(express.json());
 
 // Verify JWT
 const verifyJWT = (req, res, next) => {
-  const auhthorization = req.headers.auhthorization;
-  console.log(auhthorization);
-
-  if (!auhthorization) {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
     return res.status(401).send({ error: true, message: "Unathorized Access" });
   }
   // bearer token
-  const token = auhthorization.split(" ")[1];
-
-  jwt.verify(token, proccess.env.ACCESS_TOKEN, (err, decoded) => {
+  const token = authorization.split(" ")[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
     if (err) {
       return res.status(403).send({ error: true, message: "Forbidden Access" });
     }
@@ -80,8 +77,19 @@ async function run() {
       res.send(result);
     });
 
+    // All Classes
+    app.get("/classes", async(req, res)=>{
+      const status = req.query.status;
+      let query = {}
+      if(status){
+        query = {status: status}
+      }
+      const result = await classesCollection.find(query).sort({status:1}).toArray();
+      res.send(result);
+    })
+
     // get all users
-    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
+    app.get("/users", verifyJWT,verifyAdmin, async (req, res) => {
       const email = req.query.email;
       if (!email) {
         res.send([]);
@@ -108,15 +116,15 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/user/admin/:email", async (req, res) => {
+    app.get("/users/role/:email", verifyJWT, async (req, res) => {
       const email = req.params.email;
 
       if (req.decoded.email !== email) {
-        res.send({ admin: false });
+        return res.status(403).send({ error: true, message: "Forbidden"});
       }
       const query = { email: email };
       const user = await usersCollection.findOne(query);
-      const result = { admin: user?.role === "admin" };
+      const result = { role: user.role };
       res.send(result);
     });
 
