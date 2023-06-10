@@ -1,36 +1,35 @@
-const express = require('express');
+const express = require("express");
 const app = express();
-require('dotenv').config()
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
+require("dotenv").config();
+const jwt = require("jsonwebtoken");
+const cors = require("cors");
 const port = process.env.PORT || 5000;
-
 
 // middleware
 app.use(cors());
 app.use(express.json());
 
 // Verify JWT
-const verifyJWT = (req, res, next)=>{
+const verifyJWT = (req, res, next) => {
   const auhthorization = req.headers.auhthorization;
   console.log(auhthorization);
 
-  if(!auhthorization){
-    return res.status(401).send({error:true, message: "Unathorized Access"})
+  if (!auhthorization) {
+    return res.status(401).send({ error: true, message: "Unathorized Access" });
   }
   // bearer token
   const token = auhthorization.split(" ")[1];
 
-  jwt.verify(token, proccess.env.ACCESS_TOKEN, (err, decoded)=>{
-    if(err){
-      return res.status(403).send({error:true, message: "Forbidden Access"})
+  jwt.verify(token, proccess.env.ACCESS_TOKEN, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ error: true, message: "Forbidden Access" });
     }
     req.decoded = decoded;
     next();
-  })
-}
+  });
+};
 
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.gexry4e.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -39,7 +38,7 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
 
 async function run() {
@@ -48,94 +47,110 @@ async function run() {
     await client.connect();
 
     const usersCollection = client.db("fluentAcademyDB").collection("users");
+    const classesCollection = client
+      .db("fluentAcademyDB")
+      .collection("classes");
 
     // Generate JWT
-    app.post("/generate-jwt", (req, res)=>{
+    app.post("/generate-jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
-        expiresIn: "1h"
-      })
-      res.send({token})
-    })
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
 
     // VerifyAdmin
-    const verifyAdmin = async(req, res, next)=>{
+    const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
-      const query = {email: email}
+      const query = { email: email };
       const user = await usersCollection.findOne(query);
-      if(user?.role !== 'admin'){
-        return res.status(403).send({error : true, message : 'Forbidden Access'})
+      if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "Forbidden Access" });
       }
       next();
-    }
+    };
 
-       // get all users
-       app.get('/users', verifyJWT, verifyAdmin, async(req, res)=>{
-        const email = req.query.email;
-        if(!email){
-          res.send([]);
-        }
-        const decodedEmail = req.decoded.email;
-        if(!email !== decodedEmail){
-          return res.status(403).send({erros:true,  message: "Forbidden Access"})
-        }
-          const result = await usersCollection.find().toArray();
-          res.send(result);
-      })
+    // Classes related APIs
+    app.post("/classes", async (req, res) => {
+      const newClass = req.body;
+      const result = await classesCollection.insertOne(newClass);
+      res.send(result);
+    });
+
+    // get all users
+    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
+      const email = req.query.email;
+      if (!email) {
+        res.send([]);
+      }
+      const decodedEmail = req.decoded.email;
+      if (!email !== decodedEmail) {
+        return res
+          .status(403)
+          .send({ erros: true, message: "Forbidden Access" });
+      }
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
 
     //post users info
-    app.post('/users', async(req, res)=>{
-        const user = req.body;
-        const query ={email: user.email}
-        const existingUser = await usersCollection.findOne(query)
-        if(existingUser){
-          return res.send({message : " User Already Exists"})
-        }
-        const result = await usersCollection.insertOne(user);
-        res.send(result);
-    })
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: " User Already Exists" });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
 
-    app.get('/user/admin/:email', async(req, res)=>{
+    app.get("/user/admin/:email", async (req, res) => {
       const email = req.params.email;
 
-      if(req.decoded.email !== email){
-        res.send({admin: false})
+      if (req.decoded.email !== email) {
+        res.send({ admin: false });
       }
-      const query = {email: email}
+      const query = { email: email };
       const user = await usersCollection.findOne(query);
-      const result = {admin: user?.role === 'admin'}
+      const result = { admin: user?.role === "admin" };
       res.send(result);
-    } )
-    
+    });
+
     // Make Admin API
-    app.patch('/users/admin/:id', async(req, res)=>{
+    app.patch("/users/admin/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = {_id: new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) };
       const updateDoc = {
-        $set:{
-          role: 'admin'
-        }
+        $set: {
+          role: "admin",
+        },
       };
       const result = await usersCollection.updateOne(filter, updateDoc);
       res.send(result);
-    })
+    });
 
     // Make Instructor api
-    app.patch('/users/instructors/:id', async(req, res)=>{
+    app.patch("/users/instructors/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = {_id: new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) };
       const updateDoc = {
-        $set:{
-          role: 'instructor'
-        }
+        $set: {
+          role: "instructor",
+        },
       };
       const result = await usersCollection.updateOne(filter, updateDoc);
       res.send(result);
-    })
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
@@ -143,24 +158,10 @@ async function run() {
 }
 run().catch(console.dir);
 
+app.get("/", (req, res) => {
+  res.send("Server is Running...");
+});
 
-
-app.get("/", (req, res)=>{
-    res.send("Server is Running...")
-})
-
-app.listen(port, ()=>{
-    console.log(`Server is running on port ${port}`);
-
-})
-
-
-
-
-
-
-
-
-
-
-
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
