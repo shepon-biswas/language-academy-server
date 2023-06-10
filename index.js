@@ -41,7 +41,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const usersCollection = client.db("fluentAcademyDB").collection("users");
     const classesCollection = client
@@ -88,18 +88,16 @@ async function run() {
       res.send(result);
     })
 
+    // Class Update 
+    app.get("/classes/:id", async(req, res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const result = await classesCollection.findOne(query);
+      res.send(result);
+    })
+
     // get all users
-    app.get("/users", verifyJWT,verifyAdmin, async (req, res) => {
-      const email = req.query.email;
-      if (!email) {
-        res.send([]);
-      }
-      const decodedEmail = req.decoded.email;
-      if (!email !== decodedEmail) {
-        return res
-          .status(403)
-          .send({ erros: true, message: "Forbidden Access" });
-      }
+    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
@@ -154,8 +152,21 @@ async function run() {
       res.send(result);
     });
 
+    // Make a Class/Course Approved
+    app.patch("/classes/approved/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          status: "approved",
+        },
+      };
+      const result = await classesCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
