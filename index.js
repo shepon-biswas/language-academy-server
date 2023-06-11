@@ -1,6 +1,6 @@
+require("dotenv").config();
 const express = require("express");
 const app = express();
-require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const port = process.env.PORT || 5000;
@@ -47,6 +47,9 @@ async function run() {
     const classesCollection = client
       .db("fluentAcademyDB")
       .collection("classes");
+    const cartsCollection = client
+      .db("fluentAcademyDB")
+      .collection("carts");
 
     // Generate JWT
     app.post("/generate-jwt", (req, res) => {
@@ -125,6 +128,37 @@ async function run() {
       const result = { role: user.role };
       res.send(result);
     });
+
+    //get data based on user role (instructor) role
+    app.get("/users/instructors", async (req, res) => {
+      const result = await usersCollection
+          .find({ role: 'instructor' })
+          .toArray();
+      res.send(result)
+  })
+
+  // carts data post
+  app.post("/carts", async(req, res)=>{
+    const newCart = req.body;
+    const result = await cartsCollection.insertOne(newCart);
+    res.send(result);
+  })
+  // Carts data get
+  app.get("/carts", async(req, res)=>{
+    const result = await cartsCollection.find().toArray();
+    res.send(result);
+  })
+  // carts data get by email
+  app.get("/carts/:email",verifyJWT, async (req, res) => {
+    const email = req.params.email;
+
+    if (req.decoded.email !== email) {
+      return res.status(403).send({ error: true, message: "Forbidden"});
+    }
+    const query = { email: email };
+    const result = await cartsCollection.find(query).toArray();
+    res.send(result);
+  });
 
     // Make Admin API
     app.patch("/users/admin/:id", async (req, res) => {
