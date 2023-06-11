@@ -144,21 +144,12 @@ async function run() {
     res.send(result);
   })
   // Carts data get
-  app.get("/carts", async(req, res)=>{
-    const result = await cartsCollection.find().toArray();
-    res.send(result);
-  })
-  // carts data get by email
-  app.get("/carts/:email",verifyJWT, async (req, res) => {
-    const email = req.params.email;
-
-    if (req.decoded.email !== email) {
-      return res.status(403).send({ error: true, message: "Forbidden"});
-    }
-    const query = { email: email };
+  app.get("/carts", verifyJWT, async(req, res)=>{
+    const email = req.query.email;
+    const query = {email: email}
     const result = await cartsCollection.find(query).toArray();
     res.send(result);
-  });
+  })
 
     // Make Admin API
     app.patch("/users/admin/:id", async (req, res) => {
