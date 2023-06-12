@@ -3,6 +3,8 @@ const express = require("express");
 const app = express();
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
+
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -47,9 +49,7 @@ async function run() {
     const classesCollection = client
       .db("fluentAcademyDB")
       .collection("classes");
-    const cartsCollection = client
-      .db("fluentAcademyDB")
-      .collection("carts");
+    const cartsCollection = client.db("fluentAcademyDB").collection("carts");
 
     // Generate JWT
     app.post("/generate-jwt", (req, res) => {
@@ -81,23 +81,26 @@ async function run() {
     });
 
     // All Classes
-    app.get("/classes", async(req, res)=>{
+    app.get("/classes", async (req, res) => {
       const status = req.query.status;
-      let query = {}
-      if(status){
-        query = {status: status}
+      let query = {};
+      if (status) {
+        query = { status: status };
       }
-      const result = await classesCollection.find(query).sort({status:1}).toArray();
+      const result = await classesCollection
+        .find(query)
+        .sort({ status: 1 })
+        .toArray();
       res.send(result);
-    })
+    });
 
-    // Class Update 
-    app.get("/classes/:id", async(req, res)=>{
+    // Class Update
+    app.get("/classes/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) };
       const result = await classesCollection.findOne(query);
       res.send(result);
-    })
+    });
 
     // get all users
     app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
@@ -121,7 +124,7 @@ async function run() {
       const email = req.params.email;
 
       if (req.decoded.email !== email) {
-        return res.status(403).send({ error: true, message: "Forbidden"});
+        return res.status(403).send({ error: true, message: "Forbidden" });
       }
       const query = { email: email };
       const user = await usersCollection.findOne(query);
@@ -132,24 +135,52 @@ async function run() {
     //get data based on user role (instructor) role
     app.get("/users/instructors", async (req, res) => {
       const result = await usersCollection
-          .find({ role: 'instructor' })
-          .toArray();
-      res.send(result)
-  })
+        .find({ role: "instructor" })
+        .toArray();
+      res.send(result);
+    });
 
-  // carts data post
-  app.post("/carts", async(req, res)=>{
-    const newCart = req.body;
-    const result = await cartsCollection.insertOne(newCart);
-    res.send(result);
-  })
-  // Carts data get
-  app.get("/carts", verifyJWT, async(req, res)=>{
-    const email = req.query.email;
-    const query = {email: email}
-    const result = await cartsCollection.find(query).toArray();
-    res.send(result);
-  })
+    // carts data post
+    app.post("/carts", async (req, res) => {
+      const newCart = req.body;
+      const result = await cartsCollection.insertOne(newCart);
+      res.send(result);
+    });
+    // Carts data get
+    app.get("/carts", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const result = await cartsCollection.find(query).toArray();
+      res.send(result);
+    });
+    // get cart data by id
+    app.get("/carts/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cartsCollection.findOne(query);
+      res.send(result);
+    });
+
+    // create payment intended
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+      try {
+        const { price } = req.body;
+        // console.log(price);
+        const amount = parseInt(price * 100);
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: "usd",
+          payment_method_types: ["card"],
+        });
+        res.send({
+          clientSecret: paymentIntent.client_secret,
+        });
+      } catch (error) {
+        console.error("Error creating payment intent:", error);
+        res.status(500).send({ error: "Failed to create payment intent." });
+      }
+    });
+
 
     // Make Admin API
     app.patch("/users/admin/:id", async (req, res) => {
