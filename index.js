@@ -50,6 +50,7 @@ async function run() {
       .db("fluentAcademyDB")
       .collection("classes");
     const cartsCollection = client.db("fluentAcademyDB").collection("carts");
+    const paymentCollection = client.db("fluentAcademyDB").collection("payments");
 
     // Generate JWT
     app.post("/generate-jwt", (req, res) => {
@@ -76,6 +77,7 @@ async function run() {
     // Classes related APIs
     app.post("/classes", async (req, res) => {
       const newClass = req.body;
+      console.log(newClass)
       const result = await classesCollection.insertOne(newClass);
       res.send(result);
     });
@@ -89,7 +91,7 @@ async function run() {
       }
       const result = await classesCollection
         .find(query)
-        .sort({ status: 1 })
+        .sort({ status: 1, enrolled_student:-1 })
         .toArray();
       res.send(result);
     });
@@ -160,6 +162,13 @@ async function run() {
       const result = await cartsCollection.findOne(query);
       res.send(result);
     });
+    // cart data delete by id
+    app.delete("/carts/:id", async(req, res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await cartsCollection.deleteOne(query);
+      res.send(result)
+    })
 
     // create payment intended
     app.post("/create-payment-intent", verifyJWT, async (req, res) => {
@@ -181,6 +190,23 @@ async function run() {
       }
     });
 
+    // // Process payment
+    // app.post("/payments", verifyAdmin, async (req, res) => {
+    //   try {
+    //     const payment = req.body;
+
+    //     const query = {
+    //       _id: { $in: payment.addItems.map((id) => new ObjectId(id)) },
+    //     };
+    //     const insertResult = await paymentCollection.insertOne(payment);
+    //     const deleteResult = await StudentCollection.deleteOne(query);
+
+    //     res.send({ insertResult, deleteResult });
+    //   } catch (error) {
+    //     console.error("Error processing payment:", error);
+    //     res.status(500).send({ error: "Failed to process payment." });
+    //   }
+    // });
 
     // Make Admin API
     app.patch("/users/admin/:id", async (req, res) => {
