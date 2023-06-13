@@ -208,6 +208,13 @@ async function run() {
 
       res.send({ insertResult, deleteResult, updateResult });
   })
+  // get enrolled classes by email
+  app.get("/payments", verifyJWT, async (req, res) => {
+    const email = req.query.email;
+    const query = { email: email };
+    const result = await paymentsCollection.find(query).toArray();
+    res.send(result);
+  });
 
     // Make Admin API
     app.patch("/users/admin/:id", async (req, res) => {
