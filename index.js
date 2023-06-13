@@ -50,7 +50,7 @@ async function run() {
       .db("fluentAcademyDB")
       .collection("classes");
     const cartsCollection = client.db("fluentAcademyDB").collection("carts");
-    const paymentCollection = client.db("fluentAcademyDB").collection("payments");
+    const paymentsCollection = client.db("fluentAcademyDB").collection("payments");
 
     // Generate JWT
     app.post("/generate-jwt", (req, res) => {
@@ -190,23 +190,24 @@ async function run() {
       }
     });
 
-    // // Process payment
-    // app.post("/payments", verifyAdmin, async (req, res) => {
-    //   try {
-    //     const payment = req.body;
 
-    //     const query = {
-    //       _id: { $in: payment.addItems.map((id) => new ObjectId(id)) },
-    //     };
-    //     const insertResult = await paymentCollection.insertOne(payment);
-    //     const deleteResult = await StudentCollection.deleteOne(query);
+    app.post('/payments', verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentsCollection.insertOne(payment);
 
-    //     res.send({ insertResult, deleteResult });
-    //   } catch (error) {
-    //     console.error("Error processing payment:", error);
-    //     res.status(500).send({ error: "Failed to process payment." });
-    //   }
-    // });
+      // Delete enrolled class from cart
+      const cartClassId = payment.cartClassId;
+      const deleteQuery = { _id: new ObjectId(cartClassId) }
+      const deleteResult = await cartsCollection.deleteOne(deleteQuery);
+
+      // // update enrolled class student number and seats count
+      const classId = payment.classId;
+      const updateQuery = { _id: new ObjectId(classId) };
+      const updateOperation = { $inc: { enrolled_student: 1, seats: -1 } };
+      const updateResult = await classesCollection.updateOne(updateQuery, updateOperation);
+
+      res.send({ insertResult, deleteResult, updateResult });
+  })
 
     // Make Admin API
     app.patch("/users/admin/:id", async (req, res) => {
