@@ -212,7 +212,7 @@ async function run() {
   app.get("/payments", verifyJWT, async (req, res) => {
     const email = req.query.email;
     const query = { email: email };
-    const result = await paymentsCollection.find(query).toArray();
+    const result = await paymentsCollection.find(query).sort({ date:-1 }).toArray();
     res.send(result);
   });
 
@@ -266,6 +266,19 @@ async function run() {
       const result = await classesCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
+
+    // Give Feedback to instructor
+    app.patch("/classes/:id", verifyJWT, verifyAdmin, async(req, res)=>{
+      const id = req.params.id;
+      const feedback = req.body;
+      const updateFeedback = {
+        $set: feedback
+      }
+      const query = {_id: new ObjectId(id)}
+      const result = await classesCollection.updateOne(query, updateFeedback)
+      res.send(result)
+    })
+
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
